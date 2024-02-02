@@ -26,15 +26,18 @@ public class LifeGame : MonoBehaviour
         public Vector3Int coord;
     }
 
-    private List<CellObject> cells;
+    private List<CellObject> cellObjects;
     private List<Vector3Int> checkingCells;
     private List<Vector3Int> livingCells;
+    private List<Vector3Int> nextLivingCells;
+    private List<Vector3Int> nextDeathCells;
     private bool isRunning;
     private Vector3Int[] offsets;
+    private Vector3Int[] offsetsExceptMe;
 
     void Start()
     {
-        cells = new List<CellObject>();
+        cellObjects = new List<CellObject>();
         offsets = new Vector3Int[]
         {
             new Vector3Int(-1, 1, 0),  
@@ -46,6 +49,17 @@ public class LifeGame : MonoBehaviour
             new Vector3Int(-1, -1, 0), 
             new Vector3Int(0, -1, 0),  
             new Vector3Int(1, -1, 0)  
+        };
+        offsetsExceptMe = new Vector3Int[]
+        {
+            new Vector3Int(-1, 1, 0),
+            new Vector3Int(0, 1, 0),
+            new Vector3Int(1, 1, 0),
+            new Vector3Int(-1, 0, 0),
+            new Vector3Int(1, 0, 0),
+            new Vector3Int(-1, -1, 0),
+            new Vector3Int(0, -1, 0),
+            new Vector3Int(1, -1, 0)
         };
     }
 
@@ -64,13 +78,13 @@ public class LifeGame : MonoBehaviour
         }
 
         if(Input.GetKey(KeyCode.R)) { 
-            if(cells.Count > 0)
+            if(cellObjects.Count > 0)
             {
-                for (int i = 0; i < cells.Count; i++)
+                for (int i = 0; i < cellObjects.Count; i++)
                 {
-                    Destroy(cells[i].obj);
+                    Destroy(cellObjects[i].obj);
                 }
-                cells.Clear();
+                cellObjects.Clear();
             }
         }
 
@@ -79,7 +93,20 @@ public class LifeGame : MonoBehaviour
             isRunning = !isRunning;
             if (isRunning)
             {
+                foreach (CellObject cellObject in cellObjects)
+                {
+                    SpriteRenderer sprite = cellObject.obj.GetComponent<SpriteRenderer>();
+                    sprite.color = new Color32(16, 255, 0, 255);
+                }
                 StartCoroutine(ProcessAtInterval());
+            }
+            else
+            {
+                foreach(CellObject cellObject in cellObjects)
+                {
+                    SpriteRenderer sprite = cellObject.obj.GetComponent<SpriteRenderer>();
+                    sprite.color = new Color32(130, 130, 130, 255);
+                }
             }
         }
     }
@@ -90,23 +117,74 @@ public class LifeGame : MonoBehaviour
         {
             checkingCells = new List<Vector3Int>();
             livingCells = new List<Vector3Int>();
-            foreach (CellObject cell in cells)
-            {
-                Vector3Int coord = cell.coord;
-                livingCells.Add(coord);
-            }
+            nextLivingCells = new List<Vector3Int>();
+            nextDeathCells = new List<Vector3Int>();
 
-            foreach (Vector3Int offset in offsets)
+            foreach (CellObject cellObject in cellObjects)
             {
-                if(!checkingCells.Contains(coord + offset))
+                Vector3Int coord = cellObject.coord;
+                livingCells.Add(coord);
+                foreach (Vector3Int offset in offsets)
                 {
-                    checkingCells.Add(coord + offset);
+                    if (!checkingCells.Contains(coord + offset))
+                    {
+                        checkingCells.Add(coord + offset);
+                    }
                 }
             }
 
-            foreach(Vector3Int coord in checkingCells)
+            foreach (Vector3Int coord in checkingCells)
             {
+                foreach (CellObject cellObject in cellObjects)
+                {
+                    if (coord == cellObject.coord)
+                    {
+                        livingCells.Add(coord);
+                    }
+                }
+            }
 
+            foreach (Vector3Int coord in checkingCells)
+            {
+                int livingNum = 0;
+                foreach (Vector3Int offset in offsetsExceptMe)
+                {
+                    if (livingCells.Contains(coord + offset))
+                    {
+                        livingNum++;
+                    }
+                }
+                bool isCurrentlyAlive = livingCells.Contains(coord);
+                if (isCurrentlyAlive && (livingNum == 2 || livingNum == 3))
+                {
+                    // 現在生存しており、次も生存する条件
+                    nextLivingCells.Add(coord);
+                }
+                else if (!isCurrentlyAlive && livingNum == 3)
+                {
+                    // 現在は死んでいるが、次に生まれ変わる条件
+                    nextLivingCells.Add(coord);
+                }
+                else
+                {
+                    // 死亡、または状態の変更なし
+                    if (isCurrentlyAlive)
+                    {
+                        nextDeathCells.Add(coord);
+                    }
+                }
+            }
+
+
+
+            foreach (Vector3Int coord in nextLivingCells)
+            {
+                PaintCell(coord);
+            }
+
+            foreach (Vector3Int coord in nextDeathCells)
+            {
+                UnpaintCell(coord); 
             }
 
             yield return new WaitForSeconds(interval);
@@ -123,7 +201,7 @@ public class LifeGame : MonoBehaviour
     void PaintCell(Vector3Int point)
     {
         bool isCoordExisted = false;
-        foreach (CellObject cellItr in cells)
+        foreach (CellObject cellItr in cellObjects)
         {
             if (cellItr.coord == point)
             {
@@ -135,17 +213,22 @@ public class LifeGame : MonoBehaviour
             GameObject obj = Instantiate(paintedCellObject, point + new Vector3(0.5f, 0.5f, 0), Quaternion.identity);
             CellObject cell = new CellObject();
             cell.obj = obj;
+            SpriteRenderer sprite = obj.GetComponent<SpriteRenderer>();
+            if (!isRunning)
+            {
+                sprite.color = new Color32(130, 130, 130, 255);
+            }
             cell.coord = point;
-            cells.Add(cell);
+            cellObjects.Add(cell);
         }
     }
 
     void UnpaintCell(Vector3Int point)
     {
         int cellTmp = -1;
-        for (int i = 0; i < cells.Count; i++)
+        for (int i = 0; i < cellObjects.Count; i++)
         {
-            if (cells[i].coord == point)
+            if (cellObjects[i].coord == point)
             {
                 cellTmp = i;
                 break;
@@ -153,9 +236,8 @@ public class LifeGame : MonoBehaviour
         }
         if (cellTmp != -1)
         {
-            Destroy(cells[cellTmp].obj);
-            cells.RemoveAt(cellTmp);
-            Debug.Log(cells.Count);
+            Destroy(cellObjects[cellTmp].obj);
+            cellObjects.RemoveAt(cellTmp);
         }
     }
 }

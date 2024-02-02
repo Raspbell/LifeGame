@@ -498,6 +498,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   camera: {fileID: 519420031}
   paintedCellObject: {fileID: 772075749475091560, guid: 296cd06d42afe634fb1368c6335c242a, type: 3}
+  interval: 0.1
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
