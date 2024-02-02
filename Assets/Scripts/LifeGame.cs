@@ -5,6 +5,7 @@ using System.Linq.Expressions;
 using Unity.Burst.CompilerServices;
 using UnityEngine;
 using UnityEngine.UIElements;
+using UnityEngine.EventSystems;
 
 public class LifeGame : MonoBehaviour
 {
@@ -12,6 +13,7 @@ public class LifeGame : MonoBehaviour
     public Camera camera;
     public GameObject paintedCellObject;
     public float interval;
+    public GameObject canvas;
 
     private class CellObject
     {
@@ -65,6 +67,11 @@ public class LifeGame : MonoBehaviour
 
     void Update()
     {
+        if (EventSystem.current.IsPointerOverGameObject())
+        {
+            return;
+        }
+
         if (Input.GetMouseButton(0))
         {
             Vector3Int point = GetWorldPointInt(Input.mousePosition);
@@ -77,7 +84,19 @@ public class LifeGame : MonoBehaviour
             UnpaintCell(point);
         }
 
-        if(Input.GetKey(KeyCode.R)) { 
+        if (Input.GetKeyDown(KeyCode.Q))
+        {
+            if (canvas.activeSelf)
+            {
+                canvas.SetActive(false);
+            }
+            else
+            {
+                canvas.SetActive(true);
+            }
+        }
+
+        if (Input.GetKeyDown(KeyCode.R)) { 
             if(cellObjects.Count > 0)
             {
                 for (int i = 0; i < cellObjects.Count; i++)
