@@ -1,87 +1,143 @@
 using UnityEngine;
+using System.Collections;
 
-[RequireComponent(typeof(MeshFilter)), RequireComponent(typeof(MeshRenderer))]
+[RequireComponent(typeof(MeshFilter), typeof(MeshRenderer))]
 public class LineGrid : MonoBehaviour
 {
-    Vector3[] verts;    //ポリゴンの頂点を入れる
-    int[] triangles;    //三角形を描く際に、頂点の描画順を指定する
-    GameObject camera;  //カメラ
 
-    [SerializeField, Header("使用するMaterial")] Material material;
-    [SerializeField, Header("大きさ")] Vector2Int size;
-    [SerializeField, Header("線の太さ")] float lineSize;
+    public enum Face
+    {
+        xy,
+        zx,
+        yz,
+    };
+
+    public float gridSize = 1f;
+    public int size = 8;
+    public Color color = Color.white;
+    public Face face = Face.xy;
+    public bool back = true;
+
+    //更新検出用
+    float preGridSize = 0;
+    int preSize = 0;
+    Color preColor = Color.red;
+    Face preFace = Face.zx;
+    bool preBack = true;
+
+    Mesh mesh;
 
     void Start()
     {
-        //カメラを取得
-        camera = GameObject.FindGameObjectWithTag("MainCamera");
+
+        GetComponent<MeshFilter>().mesh = mesh = new Mesh();
+        mesh = ReGrid(mesh);
+
     }
 
-    // Update is called once per frame
+    Mesh ReGrid(Mesh mesh)
+    {
+        if (back)
+        {
+            GetComponent<MeshRenderer>().material = new Material(Shader.Find("Sprites/Default"));
+        }
+        else
+        {
+            GetComponent<MeshRenderer>().material = new Material(Shader.Find("GUI/Text Shader"));
+        }
+
+        mesh.Clear();
+
+        int drawSize;
+        float width;
+        int resolution;
+        float diff;
+        Vector3[] vertices;
+        Vector2[] uvs;
+        int[] lines;
+        Color[] colors;
+
+        drawSize = size * 2;
+        width = gridSize * drawSize / 4.0f;
+        Vector2 startPosition = new Vector2(-width, -width);
+        Vector2 endPosition = new Vector2(width, width);
+        diff = width / drawSize;
+        resolution = (drawSize + 2) * 2;
+        //最期の２辺を追加している
+
+        vertices = new Vector3[resolution];
+        uvs = new Vector2[resolution];
+        lines = new int[resolution];
+        colors = new Color[resolution];
+
+        Vector3 moveAmount = new Vector3(0, 0, 0); // 移動量を定義
+
+        for (int i = 0; i < vertices.Length; i += 4)
+        {
+            vertices[i] = new Vector3(startPosition.x + (diff * (float)i), startPosition.y, 0) + moveAmount;
+            vertices[i + 1] = new Vector3(startPosition.x + (diff * (float)i), endPosition.y, 0) + moveAmount;
+            vertices[i + 2] = new Vector3(startPosition.x, endPosition.y - (diff * (float)i), 0) + moveAmount;
+            vertices[i + 3] = new Vector3(endPosition.x, endPosition.y - (diff * (float)i), 0) + moveAmount;
+        }
+
+
+        for (int i = 0; i < resolution; i++)
+        {
+            uvs[i] = Vector2.zero;
+            lines[i] = i;
+            colors[i] = color;
+        }
+
+        Vector3 rotDirection;
+        switch (face)
+        {
+            case Face.xy:
+                rotDirection = Vector3.forward;
+                break;
+            case Face.zx:
+                rotDirection = Vector3.up;
+                break;
+            case Face.yz:
+                rotDirection = Vector3.right;
+                break;
+            default:
+                rotDirection = Vector3.forward;
+                break;
+        }
+
+        mesh.vertices = RotationVertices(vertices, rotDirection);
+        mesh.uv = uvs;
+        mesh.colors = colors;
+        mesh.SetIndices(lines, MeshTopology.Lines, 0);
+
+        preGridSize = gridSize;
+        preSize = size;
+        preColor = color;
+        preFace = face;
+        preBack = back;
+
+        return mesh;
+    }
+
+    //頂点配列データーをすべて指定の方向へ回転移動させる
+    Vector3[] RotationVertices(Vector3[] vertices, Vector3 rotDirection)
+    {
+        Vector3[] ret = new Vector3[vertices.Length];
+        for (int i = 0; i < vertices.Length; i++)
+        {
+            ret[i] = Quaternion.LookRotation(rotDirection) * vertices[i];
+        }
+        return ret;
+    }
+
     void Update()
     {
-        CreateGlid();
-
-        //カメラをグリッドの中心へ(必要ない場合はコメントアウトしてください)
-        //camera.transform.position = new Vector3((float)size.x / 2, ((float)size.y / 2) - 0.1f, -10);
-    }
-
-    void CreateGlid()
-    {
-        //新しいMeshを作成
-        Mesh mesh = new Mesh();
-
-        //頂点の番号をsize分確保、縦横の線が一本ずつなくなるので+2を入れる、一本の線は頂点6つで表示させるので*6
-        triangles = new int[(size.x + size.y + 2) * 6];
-        //頂点の座標をsize分確保
-        verts = new Vector3[(size.x + size.y + 2) * 6];
-
-        //頂点番号を割り当て
-        for (int i = 0; i < triangles.Length; i++)
+        //関係値の更新を検出したらメッシュも更新
+        if (gridSize != preGridSize || size != preSize || preColor != color || preFace != face || preBack != back)
         {
-            triangles[i] = i;
+            if (gridSize < 0) { gridSize = 0.000001f; }
+            if (size < 0) { size = 1; }
+            ReGrid(mesh);
         }
-
-
-        //何回for分が回ったかをカウントさせる
-        int x = 0, y = 0;
-
-        //縦線
-        for (int i = 0; i < (size.x + 1) * 6; i += 6)
-        {
-            verts[i] = new Vector3(x, 0, 0);
-            verts[i + 1] = new Vector3(x, size.y, 0);
-            verts[i + 2] = new Vector3(lineSize + x, size.y, 0);
-            verts[i + 3] = new Vector3(lineSize + x, size.y, 0);
-            verts[i + 4] = new Vector3(lineSize + x, 0, 0);
-            verts[i + 5] = new Vector3(x, 0, 0);
-            x++;
-        }
-
-        //横線
-        for (int i = (size.x + 1) * 6; i < (size.x + size.y + 2) * 6; i += 6)
-        {
-            verts[i] = new Vector3(0, y, 0);
-            verts[i + 1] = new Vector3(size.x + lineSize, y, 0);
-            verts[i + 2] = new Vector3(0, y - lineSize, 0);
-            verts[i + 3] = new Vector3(size.x + lineSize, y, 0);
-            verts[i + 4] = new Vector3(size.x + lineSize, y - lineSize, 0);
-            verts[i + 5] = new Vector3(0, y - lineSize, 0);
-            y++;
-        }
-
-        //作った頂点番号、座標データを作成したmeshに追加
-        mesh.vertices = verts;
-        mesh.triangles = triangles;
-
-        //再計算()
-        mesh.RecalculateBounds();
-        mesh.RecalculateNormals();
-
-        //再計算後に完成したMeshを追加
-        GetComponent<MeshFilter>().mesh = mesh;
-        //設定したMaterialを反映
-        GetComponent<MeshRenderer>().material = material;
     }
 }
-
