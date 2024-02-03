@@ -6,14 +6,18 @@ using Unity.Burst.CompilerServices;
 using UnityEngine;
 using UnityEngine.UIElements;
 using UnityEngine.EventSystems;
+using System;
+using TMPro;
 
 public class LifeGame : MonoBehaviour
 {
    
     public Camera camera;
     public GameObject paintedCellObject;
+    public GameObject generationCanvas;
+    public GameObject helpCanvas;
+    public TextMeshProUGUI generationText;
     public float interval;
-    public GameObject canvas;
 
     private class CellObject
     {
@@ -21,11 +25,10 @@ public class LifeGame : MonoBehaviour
         public Vector3Int coord;
     }
 
-    private class CellStatus
-    {
-        public bool isLiving;
-        public int livingNum;
-        public Vector3Int coord;
+    private enum UIMode {
+        None,
+        Generation,
+        All
     }
 
     private List<CellObject> cellObjects;
@@ -33,7 +36,9 @@ public class LifeGame : MonoBehaviour
     private List<Vector3Int> livingCells;
     private List<Vector3Int> nextLivingCells;
     private List<Vector3Int> nextDeathCells;
-    private bool isRunning;
+    private bool isRunning = false;
+    private int generation = 1;
+    private UIMode mode = UIMode.All;
     private Vector3Int[] offsets;
     private Vector3Int[] offsetsExceptMe;
 
@@ -69,6 +74,7 @@ public class LifeGame : MonoBehaviour
     {
         if (EventSystem.current.IsPointerOverGameObject())
         {
+            generationText.text = generation + "";
             return;
         }
 
@@ -86,15 +92,23 @@ public class LifeGame : MonoBehaviour
 
         if (Input.GetKeyDown(KeyCode.Q))
         {
-            if (canvas.activeSelf)
-            {
-                canvas.SetActive(false);
-            }
-            else
-            {
-                canvas.SetActive(true);
+            switch (mode) {
+                case UIMode.None:
+                    helpCanvas.SetActive(true);
+                    generationCanvas.SetActive(true);
+                    mode = UIMode.All;
+                    break;
+                case UIMode.Generation:
+                    generationCanvas.SetActive(false);
+                    mode = UIMode.None;
+                    break;
+                case UIMode.All:
+                    helpCanvas.SetActive(false);
+                    mode = UIMode.Generation;
+                    break;
             }
         }
+        generationText.text = generation + "";
 
         if (Input.GetKeyDown(KeyCode.R)) { 
             if(cellObjects.Count > 0)
@@ -105,6 +119,7 @@ public class LifeGame : MonoBehaviour
                 }
                 cellObjects.Clear();
             }
+            generation = 1;
         }
 
         if (Input.GetKeyDown(KeyCode.Space))
@@ -176,17 +191,17 @@ public class LifeGame : MonoBehaviour
                 bool isCurrentlyAlive = livingCells.Contains(coord);
                 if (isCurrentlyAlive && (livingNum == 2 || livingNum == 3))
                 {
-                    // Œ»İ¶‘¶‚µ‚Ä‚¨‚èAŸ‚à¶‘¶‚·‚éğŒ
+                    // ï¿½ï¿½ï¿½İï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä‚ï¿½ï¿½ï¿½Aï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
                     nextLivingCells.Add(coord);
                 }
                 else if (!isCurrentlyAlive && livingNum == 3)
                 {
-                    // Œ»İ‚Í€‚ñ‚Å‚¢‚é‚ªAŸ‚É¶‚Ü‚ê•Ï‚í‚éğŒ
+                    // ï¿½ï¿½ï¿½İ‚Íï¿½ï¿½ï¿½Å‚ï¿½ï¿½é‚ªï¿½Aï¿½ï¿½ï¿½Éï¿½ï¿½Ü‚ï¿½Ï‚ï¿½ï¿½ï¿½ï¿½
                     nextLivingCells.Add(coord);
                 }
                 else
                 {
-                    // €–SA‚Ü‚½‚Íó‘Ô‚Ì•ÏX‚È‚µ
+                    // ï¿½ï¿½ï¿½Sï¿½Aï¿½Ü‚ï¿½ï¿½Íï¿½Ô‚Ì•ÏXï¿½È‚ï¿½
                     if (isCurrentlyAlive)
                     {
                         nextDeathCells.Add(coord);
@@ -206,6 +221,7 @@ public class LifeGame : MonoBehaviour
                 UnpaintCell(coord); 
             }
 
+            generation++;
             yield return new WaitForSeconds(interval);
         }
     }
