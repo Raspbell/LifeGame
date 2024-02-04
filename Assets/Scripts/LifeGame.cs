@@ -38,6 +38,7 @@ public class LifeGame : MonoBehaviour
     private List<Vector3Int> nextLivingCells;
     private List<Vector3Int> nextDeathCells;
     private bool isRunning = false;
+    private bool isOneStepSimulation = false;
     private int generation = 1;
     private int lifeNum = 0;
     private UIMode mode = UIMode.All;
@@ -75,12 +76,29 @@ public class LifeGame : MonoBehaviour
 
     void Update()
     {
+        lifeNum = cellObjects.Count;
+        generationText.text = generation + "";
+        lifeNumText.text = lifeNum + "";
+
+        if(isRunning)
+        {
+            foreach (CellObject cellObject in cellObjects)
+            {
+                SpriteRenderer sprite = cellObject.obj.GetComponent<SpriteRenderer>();
+                sprite.color = new Color32(16, 255, 0, 255);
+            }
+        }
+        else
+        {
+            foreach (CellObject cellObject in cellObjects)
+            {
+                SpriteRenderer sprite = cellObject.obj.GetComponent<SpriteRenderer>();
+                sprite.color = new Color32(130, 130, 130, 255);
+            }
+        }
+
         if (EventSystem.current.IsPointerOverGameObject())
         {
-            
-            lifeNum = cellObjects.Count;
-            generationText.text = generation + "";
-            lifeNumText.text = lifeNum + "";
             return;
         }
 
@@ -114,9 +132,6 @@ public class LifeGame : MonoBehaviour
                     break;
             }
         }
-        lifeNum = cellObjects.Count;
-        generationText.text = generation + "";
-        lifeNumText.text = lifeNum + "";
 
         if (Input.GetKeyDown(KeyCode.R)) { 
             if(cellObjects.Count > 0)
@@ -130,25 +145,22 @@ public class LifeGame : MonoBehaviour
             generation = 1;
         }
 
+        if (Input.GetKeyDown(KeyCode.E))
+        {
+            if (!isRunning)
+            {
+                isRunning = true;
+                isOneStepSimulation = true;
+                StartCoroutine(ProcessAtInterval());
+            }
+        }
+
         if (Input.GetKeyDown(KeyCode.Space))
         {
             isRunning = !isRunning;
             if (isRunning)
             {
-                foreach (CellObject cellObject in cellObjects)
-                {
-                    SpriteRenderer sprite = cellObject.obj.GetComponent<SpriteRenderer>();
-                    sprite.color = new Color32(16, 255, 0, 255);
-                }
                 StartCoroutine(ProcessAtInterval());
-            }
-            else
-            {
-                foreach(CellObject cellObject in cellObjects)
-                {
-                    SpriteRenderer sprite = cellObject.obj.GetComponent<SpriteRenderer>();
-                    sprite.color = new Color32(130, 130, 130, 255);
-                }
             }
         }
     }
@@ -227,7 +239,15 @@ public class LifeGame : MonoBehaviour
 
             generation++;
             lifeNum = cellObjects.Count;
-            yield return new WaitForSeconds(interval);
+            if (isOneStepSimulation)
+            {
+                isOneStepSimulation = false;
+                isRunning = false;
+            }
+            else
+            {
+                yield return new WaitForSeconds(interval);
+            }
         }
     }
 
