@@ -17,6 +17,7 @@ public class LifeGame : MonoBehaviour
     public GameObject generationCanvas;
     public GameObject helpCanvas;
     public TextMeshProUGUI generationText;
+    public TextMeshProUGUI lifeNumText;
     public float interval;
 
     private class CellObject
@@ -27,7 +28,7 @@ public class LifeGame : MonoBehaviour
 
     private enum UIMode {
         None,
-        Generation,
+        OnlyStatus,
         All
     }
 
@@ -38,9 +39,11 @@ public class LifeGame : MonoBehaviour
     private List<Vector3Int> nextDeathCells;
     private bool isRunning = false;
     private int generation = 1;
+    private int lifeNum = 0;
     private UIMode mode = UIMode.All;
     private Vector3Int[] offsets;
-    private Vector3Int[] offsetsExceptMe;
+    private Vector3Int[] offsetsExceptCenter;
+    //private bool isTaskRun = false
 
     void Start()
     {
@@ -57,7 +60,7 @@ public class LifeGame : MonoBehaviour
             new Vector3Int(0, -1, 0),  
             new Vector3Int(1, -1, 0)  
         };
-        offsetsExceptMe = new Vector3Int[]
+        offsetsExceptCenter = new Vector3Int[]
         {
             new Vector3Int(-1, 1, 0),
             new Vector3Int(0, 1, 0),
@@ -74,7 +77,10 @@ public class LifeGame : MonoBehaviour
     {
         if (EventSystem.current.IsPointerOverGameObject())
         {
+            
+            lifeNum = cellObjects.Count;
             generationText.text = generation + "";
+            lifeNumText.text = lifeNum + "";
             return;
         }
 
@@ -98,17 +104,19 @@ public class LifeGame : MonoBehaviour
                     generationCanvas.SetActive(true);
                     mode = UIMode.All;
                     break;
-                case UIMode.Generation:
+                case UIMode.OnlyStatus:
                     generationCanvas.SetActive(false);
                     mode = UIMode.None;
                     break;
                 case UIMode.All:
                     helpCanvas.SetActive(false);
-                    mode = UIMode.Generation;
+                    mode = UIMode.OnlyStatus;
                     break;
             }
         }
+        lifeNum = cellObjects.Count;
         generationText.text = generation + "";
+        lifeNumText.text = lifeNum + "";
 
         if (Input.GetKeyDown(KeyCode.R)) { 
             if(cellObjects.Count > 0)
@@ -153,63 +161,59 @@ public class LifeGame : MonoBehaviour
             livingCells = new List<Vector3Int>();
             nextLivingCells = new List<Vector3Int>();
             nextDeathCells = new List<Vector3Int>();
-
             foreach (CellObject cellObject in cellObjects)
             {
                 Vector3Int coord = cellObject.coord;
-                livingCells.Add(coord);
+                if (!livingCells.Contains(coord))
+                {
+                    livingCells.Add(coord);
+                }
                 foreach (Vector3Int offset in offsets)
                 {
-                    if (!checkingCells.Contains(coord + offset))
+                    Vector3Int adjacentCoord = coord + offset;
+                    if (!checkingCells.Contains(adjacentCoord))
                     {
-                        checkingCells.Add(coord + offset);
+                        checkingCells.Add(adjacentCoord);
                     }
                 }
             }
 
             foreach (Vector3Int coord in checkingCells)
             {
-                foreach (CellObject cellObject in cellObjects)
-                {
-                    if (coord == cellObject.coord)
-                    {
-                        livingCells.Add(coord);
-                    }
-                }
-            }
-
-            foreach (Vector3Int coord in checkingCells)
-            {
-                int livingNum = 0;
-                foreach (Vector3Int offset in offsetsExceptMe)
+                int livingNumAroundCell = 0;
+                foreach (Vector3Int offset in offsetsExceptCenter)
                 {
                     if (livingCells.Contains(coord + offset))
                     {
-                        livingNum++;
+                        livingNumAroundCell++;
                     }
                 }
                 bool isCurrentlyAlive = livingCells.Contains(coord);
-                if (isCurrentlyAlive && (livingNum == 2 || livingNum == 3))
+                if (isCurrentlyAlive && (livingNumAroundCell == 2 || livingNumAroundCell == 3))
                 {
-                    // ���ݐ������Ă���A�������������
-                    nextLivingCells.Add(coord);
+                    if (!nextLivingCells.Contains(coord))
+                    {
+                        nextLivingCells.Add(coord);
+                    }
                 }
-                else if (!isCurrentlyAlive && livingNum == 3)
+                else if (!isCurrentlyAlive && livingNumAroundCell == 3)
                 {
-                    // ���݂͎���ł��邪�A���ɐ��܂�ς����
-                    nextLivingCells.Add(coord);
+                    if (!nextLivingCells.Contains(coord))
+                    {
+                        nextLivingCells.Add(coord);
+                    }
                 }
                 else
                 {
-                    // ���S�A�܂��͏�Ԃ̕ύX�Ȃ�
                     if (isCurrentlyAlive)
                     {
-                        nextDeathCells.Add(coord);
+                        if (!nextDeathCells.Contains(coord))
+                        {
+                            nextDeathCells.Add(coord);
+                        }
                     }
                 }
             }
-
-
 
             foreach (Vector3Int coord in nextLivingCells)
             {
@@ -222,6 +226,7 @@ public class LifeGame : MonoBehaviour
             }
 
             generation++;
+            lifeNum = cellObjects.Count;
             yield return new WaitForSeconds(interval);
         }
     }
